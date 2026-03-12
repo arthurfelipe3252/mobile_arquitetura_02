@@ -18,26 +18,26 @@ Aplicativo Flutter que consome a [FakeStore API](https://fakestoreapi.com/produc
 O projeto segue os princípios da **Clean Architecture**, organizado em camadas com responsabilidades bem definidas:
 
 ```
-┌──────────────────────────────────────────┐
-│         PRESENTATION LAYER               │
-│  ProductPage · ProductViewModel          │
-└──────────────────┬───────────────────────┘
-                   │
-┌──────────────────▼───────────────────────┐
-│           DOMAIN LAYER                   │
-│  Product (Entity) · ProductRepository    │
-└──────────────────┬───────────────────────┘
-                   │
-┌──────────────────▼───────────────────────┐
-│            DATA LAYER                    │
-│  ProductRepositoryImpl · ProductModel    │
-│  ProductRemoteDatasource                 │
-└──────────────────┬───────────────────────┘
-                   │
-┌──────────────────▼───────────────────────┐
-│            CORE LAYER                    │
-│  HttpClient (wrapper do Dio)             │
-└──────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│              PRESENTATION LAYER                     │
+│  ProductPage · ProductViewModel · ProductState      │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│                DOMAIN LAYER                         │
+│  Product (Entity) · ProductRepository (contrato)    │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│                 DATA LAYER                          │
+│  ProductRepositoryImpl · ProductModel               │
+│  ProductRemoteDatasource · ProductCacheDatasource   │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│                 CORE LAYER                          │
+│  HttpClient (wrapper do Dio) · Failure              │
+└─────────────────────────────────────────────────────┘
 ```
 
 ### Camadas
@@ -45,9 +45,9 @@ O projeto segue os princípios da **Clean Architecture**, organizado em camadas 
 | Camada | Responsabilidade | Exemplo |
 |--------|-----------------|---------|
 | **Domain** | Entidades de negócio e contratos (interfaces) dos repositórios | `Product`, `ProductRepository` |
-| **Data** | Implementação dos repositórios, datasources e models (DTOs) | `ProductRepositoryImpl`, `ProductRemoteDatasource`, `ProductModel` |
-| **Presentation** | UI (Pages/Widgets) e ViewModels para gerenciamento de estado | `ProductPage`, `ProductViewModel` |
-| **Core** | Infraestrutura compartilhada (rede, tratamento de erros) | `HttpClient` |
+| **Data** | Implementação dos repositórios, datasources, cache e models (DTOs) | `ProductRepositoryImpl`, `ProductRemoteDatasource`, `ProductCacheDatasource`, `ProductModel` |
+| **Presentation** | UI (Pages/Widgets), ViewModels e estado da tela | `ProductPage`, `ProductViewModel`, `ProductState` |
+| **Core** | Infraestrutura compartilhada (rede, tratamento de erros) | `HttpClient`, `Failure` |
 
 ## Estrutura de Pastas
 
@@ -55,11 +55,13 @@ O projeto segue os princípios da **Clean Architecture**, organizado em camadas 
 lib/
 ├── core/
 │   ├── errors/
+│   │   └── failure.dart
 │   └── network/
 │       └── http_client.dart
 ├── data/
 │   ├── datasources/
-│   │   └── product_remote_datasource.dart
+│   │   ├── product_remote_datasource.dart
+│   │   └── product_cache_datasource.dart
 │   ├── models/
 │   │   └── product_model.dart
 │   └── repositories/
@@ -73,7 +75,8 @@ lib/
 │   ├── pages/
 │   │   └── product_page.dart
 │   └── viewmodels/
-│       └── product_viewmodel.dart
+│       ├── product_viewmodel.dart
+│       └── product_state.dart
 └── main.dart
 ```
 
@@ -104,3 +107,21 @@ flutter run
 | dio | ^5.8.0+1 | Cliente HTTP para consumo de APIs |
 | cupertino_icons | ^1.0.8 | Ícones no estilo iOS |
 | flutter_lints | ^6.0.0 | Regras de lint e qualidade de código |
+
+## Perguntas
+
+**1. Em qual camada foi implementado o cache e por quê?**
+
+O cache foi implementado na camada Data, no arquivo `ProductCacheDatasource`. Fiz isso porque o cache é uma forma de acessar dados, igual a API remota, então faz sentido ele ficar junto com os outros datasources. Dessa forma o domínio não precisa saber se o dado veio da API ou do cache, quem decide isso é o repositório.
+
+**2. Por que o ViewModel não realiza chamadas HTTP diretamente?**
+
+Porque o ViewModel faz parte da camada de apresentação, e o papel dele é só cuidar do estado da tela. Se ele fizesse chamadas HTTP direto, ia misturar responsabilidades e ficar tudo acoplado. Qualquer mudança na API ia obrigar a mexer no ViewModel também. Deixando o HTTP nos datasources, cada parte cuida do seu.
+
+**3. O que aconteceria se a interface acessasse diretamente o datasource?**
+
+A tela ia ter que lidar com JSON, URLs e respostas HTTP, coisa que não é responsabilidade dela. Se a API mudasse um campo, ia ter que ir lá na tela consertar. Também não teria como ter o estado de loading ou de erro de forma organizada, e o fallback pro cache não funcionaria, porque a tela não saberia quando usar um ou outro.
+
+**4. Como essa arquitetura facilitaria a substituição da API por um banco de dados local?**
+
+Seria bem simples. Bastaria criar um novo datasource que acessa o banco local e trocar ele dentro do `ProductRepositoryImpl`. O contrato `ProductRepository` no domínio não muda, o ViewModel não muda e a tela não muda. É só trocar a implementação por baixo que tudo continua funcionando, porque as camadas de cima dependem da abstração e não da implementação.

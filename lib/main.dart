@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_arquitetura_02/core/network/http_client.dart';
+import 'package:mobile_arquitetura_02/data/datasources/product_cache_datasource.dart';
 import 'package:mobile_arquitetura_02/data/datasources/product_remote_datasource.dart';
 import 'package:mobile_arquitetura_02/data/repositories/product_repository_impl.dart';
 import 'package:mobile_arquitetura_02/presentation/pages/product_page.dart';
@@ -8,7 +9,8 @@ import 'package:mobile_arquitetura_02/presentation/viewmodels/product_viewmodel.
 void main() {
   final client = HttpClient();
   final datasource = ProductRemoteDatasource(client);
-  final repository = ProductRepositoryImpl(datasource);
+  final cache = ProductCacheDatasource();
+  final repository = ProductRepositoryImpl(datasource, cache);
   final viewModel = ProductViewModel(repository);
 
   runApp(MyApp(viewModel: viewModel));
